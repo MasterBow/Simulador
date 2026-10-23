@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
@@ -15,25 +15,25 @@
   <header class="app-header">
     <div class="header-titles">
       <div class="badge-status">
-        <span class="pulse-indicator"></span> RFC / TCP-IP SIM
+        <span class="pulse-indicator"></span> ARQUITECTURA DE REDES TCP/IP
       </div>
-      <h1>Interconexión LAN ⇄ WAN (Capa 2 / Capa 3)</h1>
-      <p class="subtitle">Simulación interactiva de conmutación, enrutamiento, encapsulación e inspección de tramas.</p>
+      <h1>Simulador de Interconexión LAN ⇄ WAN</h1>
+      <p class="subtitle">Conmutación Capa 2 (CAM) • Enrutamiento Capa 3 • Encapsulación WAN e Inspección OSI</p>
     </div>
 
-    <!-- Barra de Controles Globales -->
+    <!-- Controles de Simulación -->
     <div class="control-panel">
       <div class="control-group">
         <label for="simulation-mode">Escenario:</label>
         <select id="simulation-mode" class="select-input">
-          <option value="success">Transmisión Exitosa (Ruta Válida)</option>
-          <option value="fail">Falla en Enrutamiento (ICMP Unreachable)</option>
+          <option value="success">Ruta Válida (Entrega Exitosa)</option>
+          <option value="fail">Falla de Enrutamiento (ICMP Drop)</option>
         </select>
       </div>
 
-      <div class="control-group">
+      <div class="control-group button-cluster">
         <button id="btn-prev" class="btn btn-secondary" title="Paso Anterior">◀ Anterior</button>
-        <button id="btn-play" class="btn btn-primary" title="Reproducir/Pausar">▶ Iniciar</button>
+        <button id="btn-play" class="btn btn-primary" title="Reproducir/Pausar">▶ Reproducir</button>
         <button id="btn-next" class="btn btn-secondary" title="Paso Siguiente">Siguiente ▶</button>
         <button id="btn-reset" class="btn btn-danger" title="Reiniciar Simulación">↺ Reiniciar</button>
       </div>
@@ -41,255 +41,282 @@
       <div class="control-group speed-group">
         <label for="playback-speed">Velocidad:</label>
         <select id="playback-speed" class="select-input">
-          <option value="2500">0.75x</option>
-          <option value="1800" selected>1.0x</option>
-          <option value="900">2.0x</option>
+          <option value="3000">0.5x</option>
+          <option value="2000" selected>1.0x</option>
+          <option value="1000">2.0x</option>
         </select>
       </div>
     </div>
   </header>
 
-  <!-- Contenedor Principal en Cuadrícula -->
+  <!-- Contenedor Principal -->
   <main class="main-layout">
     
-    <!-- Panel Superior: Topología de Red Vectorial -->
+    <!-- Lienzo de Topología Interactivo -->
     <section class="card topology-card">
       <div class="card-header">
-        <h2>Diagrama Topológico y Tránsito de Paquete</h2>
-        <span class="step-badge" id="step-counter">Fase: 0 de 6</span>
+        <div class="header-with-hint">
+          <h2>Topología de Red Interactiva</h2>
+          <span class="cursor-hint">Arrastra para mover el lienzo • Rueda para zoom</span>
+        </div>
+        <div class="canvas-actions">
+          <span class="step-badge" id="step-counter">Fase: 0 de 6</span>
+          <button id="btn-reset-zoom" class="btn btn-xs" title="Restablecer Vista">⛶ Centrar</button>
+        </div>
       </div>
 
-      <div class="svg-viewport-wrapper">
-        <svg id="network-topology" viewBox="0 0 1000 360" preserveAspectRatio="xMidYMid meet">
-          <defs>
-            <!-- Gradientes de enlaces -->
-            <linearGradient id="utp-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stop-color="#38bdf8" />
-              <stop offset="100%" stop-color="#818cf8" />
-            </linearGradient>
-            <linearGradient id="wan-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stop-color="#f59e0b" />
-              <stop offset="100%" stop-color="#ef4444" />
-            </linearGradient>
+      <!-- Barra de Progreso Deslizable (Scrubber) -->
+      <div class="scrubber-container">
+        <label for="timeline-scrubber" class="sr-only">Línea de tiempo</label>
+        <input type="range" id="timeline-scrubber" min="0" max="6" value="0" step="1">
+        <div class="scrubber-ticks">
+          <span>Inicio</span>
+          <span>Creación</span>
+          <span>Switch A</span>
+          <span>Router A</span>
+          <span>Nube WAN</span>
+          <span>Switch B</span>
+          <span>Entrega</span>
+        </div>
+      </div>
 
-            <!-- Glow Filters -->
+      <!-- Viewport SVG con soporte Pan & Zoom -->
+      <div class="svg-viewport-wrapper" id="viewport-container">
+        <svg id="network-topology" viewBox="0 0 1000 380" preserveAspectRatio="xMidYMid meet">
+          <defs>
             <filter id="glow-packet" x="-50%" y="-50%" width="200%" height="200%">
-              <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#38bdf8"/>
+              <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#38bdf8"/>
             </filter>
             <filter id="glow-error" x="-50%" y="-50%" width="200%" height="200%">
-              <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#ef4444"/>
+              <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#ef4444"/>
+            </filter>
+            <filter id="node-shadow" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000000" flood-opacity="0.5"/>
             </filter>
           </defs>
 
-          <!-- Zona LAN A -->
-          <rect x="20" y="25" width="280" height="310" rx="14" class="zone-box zone-lan-a"/>
-          <text x="35" y="55" class="zone-label">LAN A: 192.168.10.0/24</text>
-          <text x="35" y="73" class="zone-sublabel">UTP Cat6 • Switch FastEthernet</text>
+          <!-- Grupo Transformable para Pan y Zoom suave -->
+          <g id="pan-zoom-stage">
 
-          <!-- Zona WAN -->
-          <rect x="340" y="25" width="320" height="310" rx="14" class="zone-box zone-wan"/>
-          <text x="355" y="55" class="zone-label-wan">Nube WAN: 10.0.0.0/30</text>
-          <text x="355" y="73" class="zone-sublabel">Enlace Serial Punto a Punto (PPP/HDLC)</text>
+            <!-- Subred LAN A -->
+            <rect x="25" y="25" width="280" height="330" rx="14" class="zone-box zone-lan-a"/>
+            <text x="40" y="55" class="zone-label">LAN A: 192.168.10.0/24</text>
+            <text x="40" y="73" class="zone-sublabel">Norma T568B • UTP Cat6 FastEthernet</text>
 
-          <!-- Zona LAN B -->
-          <rect x="700" y="25" width="280" height="310" rx="14" class="zone-box zone-lan-b"/>
-          <text x="715" y="55" class="zone-label">LAN B: 192.168.20.0/24</text>
-          <text x="715" y="73" class="zone-sublabel">UTP Cat6 • Red de Destino</text>
+            <!-- Zona WAN -->
+            <rect x="345" y="25" width="310" height="330" rx="14" class="zone-box zone-wan"/>
+            <text x="360" y="55" class="zone-label-wan">Infraestructura WAN Externa</text>
+            <text x="360" y="73" class="zone-sublabel">Enlace Serial Punto a Punto (10.0.0.0/30)</text>
 
-          <!-- Cables Físicos / Enlaces (Paths) -->
-          <path id="link-pcA-swA" class="cable cable-lan" d="M 90 200 L 220 200" />
-          <path id="link-swA-rtA" class="cable cable-lan" d="M 220 200 L 390 200" />
-          <path id="link-rtA-rtB" class="cable cable-wan" d="M 390 200 Q 500 130 610 200" />
-          <path id="link-rtB-swB" class="cable cable-lan" d="M 610 200 L 780 200" />
-          <path id="link-swB-pcB" class="cable cable-lan" d="M 780 200 L 910 200" />
+            <!-- Subred LAN B -->
+            <rect x="695" y="25" width="280" height="330" rx="14" class="zone-box zone-lan-b"/>
+            <text x="710" y="55" class="zone-label">LAN B: 192.168.20.0/24</text>
+            <text x="710" y="73" class="zone-sublabel">Segmento Remoto de Destino</text>
 
-          <!-- Nodos: Dispositivos de Red -->
+            <!-- Cables Físicos / Trayectorias -->
+            <path id="link-step-1" class="cable cable-lan" d="M 95 210 L 225 210" />
+            <path id="link-step-2" class="cable cable-lan" d="M 225 210 L 395 210" />
+            <path id="link-step-3" class="cable cable-wan" d="M 395 210 Q 500 130 605 210" />
+            <path id="link-step-4" class="cable cable-lan" d="M 605 210 L 775 210" />
+            <path id="link-step-5" class="cable cable-lan" d="M 775 210 L 905 210" />
 
-          <!-- PC A -->
-          <g id="node-pcA" class="network-node active-node" transform="translate(90, 200)">
-            <circle r="26" class="node-bg" />
-            <text y="-3" class="node-icon">💻</text>
-            <text y="42" class="node-name">PC A</text>
-            <text y="56" class="node-ip">192.168.10.10</text>
-            <text y="69" class="node-mac">MAC: 00:1A:2B:3C:4D:01</text>
-          </g>
+            <!-- Nodos de Red -->
+            <!-- Computadora A -->
+            <g id="node-pcA" class="network-node active-node" transform="translate(95, 210)" filter="url(#node-shadow)">
+              <circle r="27" class="node-bg" />
+              <text y="-2" class="node-icon">💻</text>
+              <text y="42" class="node-name">PC A</text>
+              <text y="56" class="node-ip">192.168.10.10</text>
+              <text y="69" class="node-mac">MAC: 00:1A:2B:3C:4D:01</text>
+            </g>
 
-          <!-- Switch A -->
-          <g id="node-swA" class="network-node" transform="translate(220, 200)">
-            <circle r="26" class="node-bg" />
-            <text y="-2" class="node-icon">🔀</text>
-            <text y="42" class="node-name">Switch A</text>
-            <text y="56" class="node-ip">Capa 2 (CAM)</text>
-            <text y="69" class="node-mac">Fa0/1 ⇄ Fa0/24</text>
-          </g>
+            <!-- Switch A -->
+            <g id="node-swA" class="network-node" transform="translate(225, 210)" filter="url(#node-shadow)">
+              <circle r="27" class="node-bg" />
+              <text y="-2" class="node-icon">🔀</text>
+              <text y="42" class="node-name">Switch A</text>
+              <text y="56" class="node-ip">Capa 2 (VLAN 10)</text>
+              <text y="69" class="node-mac">Fa0/1 ⇄ Uplink Fa0/24</text>
+            </g>
 
-          <!-- Router A -->
-          <g id="node-rtA" class="network-node" transform="translate(390, 200)">
-            <circle r="28" class="node-bg node-router" />
-            <text y="-2" class="node-icon">🌐</text>
-            <text y="44" class="node-name">Router A (GW)</text>
-            <text y="58" class="node-ip">Fa0/0: 192.168.10.1</text>
-            <text y="71" class="node-mac">Se0/0/0: 10.0.0.1</text>
-          </g>
+            <!-- Router A (Default Gateway) -->
+            <g id="node-rtA" class="network-node" transform="translate(395, 210)" filter="url(#node-shadow)">
+              <circle r="30" class="node-bg node-router" />
+              <text y="-1" class="node-icon">🌐</text>
+              <text y="45" class="node-name">Router A (GW)</text>
+              <text y="59" class="node-ip">Fa0/0: 192.168.10.1</text>
+              <text y="72" class="node-mac">Se0/0/0: 10.0.0.1</text>
+            </g>
 
-          <!-- Nube WAN (Ilustración central) -->
-          <g transform="translate(500, 155)">
-            <ellipse rx="42" ry="22" class="wan-cloud-bg" />
-            <text y="4" class="wan-cloud-text">Internet / WAN</text>
-          </g>
+            <!-- Nube WAN Ilustrativa -->
+            <g transform="translate(500, 155)">
+              <ellipse rx="52" ry="24" class="wan-cloud-bg" />
+              <text y="4" class="wan-cloud-text">Nube WAN (PPP/HDLC)</text>
+            </g>
 
-          <!-- Router B -->
-          <g id="node-rtB" class="network-node" transform="translate(610, 200)">
-            <circle r="28" class="node-bg node-router" />
-            <text y="-2" class="node-icon">🌐</text>
-            <text y="44" class="node-name">Router B</text>
-            <text y="58" class="node-ip">Fa0/0: 192.168.20.1</text>
-            <text y="71" class="node-mac">Se0/0/0: 10.0.0.2</text>
-          </g>
+            <!-- Router B -->
+            <g id="node-rtB" class="network-node" transform="translate(605, 210)" filter="url(#node-shadow)">
+              <circle r="30" class="node-bg node-router" />
+              <text y="-1" class="node-icon">🌐</text>
+              <text y="45" class="node-name">Router B</text>
+              <text y="59" class="node-ip">Fa0/0: 192.168.20.1</text>
+              <text y="72" class="node-mac">Se0/0/0: 10.0.0.2</text>
+            </g>
 
-          <!-- Switch B -->
-          <g id="node-swB" class="network-node" transform="translate(780, 200)">
-            <circle r="26" class="node-bg" />
-            <text y="-2" class="node-icon">🔀</text>
-            <text y="42" class="node-name">Switch B</text>
-            <text y="56" class="node-ip">Capa 2 (CAM)</text>
-            <text y="69" class="node-mac">Fa0/24 ⇄ Fa0/1</text>
-          </g>
+            <!-- Switch B -->
+            <g id="node-swB" class="network-node" transform="translate(775, 210)" filter="url(#node-shadow)">
+              <circle r="27" class="node-bg" />
+              <text y="-2" class="node-icon">🔀</text>
+              <text y="42" class="node-name">Switch B</text>
+              <text y="56" class="node-ip">Capa 2 (VLAN 20)</text>
+              <text y="69" class="node-mac">Fa0/24 ⇄ Fa0/1</text>
+            </g>
 
-          <!-- PC B -->
-          <g id="node-pcB" class="network-node" transform="translate(910, 200)">
-            <circle r="26" class="node-bg" />
-            <text y="-3" class="node-icon">💻</text>
-            <text y="42" class="node-name">PC B</text>
-            <text y="56" class="node-ip">192.168.20.10</text>
-            <text y="69" class="node-mac">MAC: 00:1A:2B:3C:4D:02</text>
-          </g>
+            <!-- Computadora B -->
+            <g id="node-pcB" class="network-node" transform="translate(905, 210)" filter="url(#node-shadow)">
+              <circle r="27" class="node-bg" />
+              <text y="-2" class="node-icon">💻</text>
+              <text y="42" class="node-name">PC B</text>
+              <text y="56" class="node-ip">192.168.20.10</text>
+              <text y="69" class="node-mac">MAC: 00:1A:2B:3C:4D:02</text>
+            </g>
 
-          <!-- Paquete Dinámico Animado -->
-          <g id="packet-marker" transform="translate(90, 200)">
-            <circle r="12" class="packet-circle" filter="url(#glow-packet)"/>
-            <text id="packet-icon" text-anchor="middle" dy="4" class="packet-text">📦</text>
+            <!-- Paquete Dinámico Suave -->
+            <g id="packet-marker" transform="translate(95, 210)">
+              <circle r="13" class="packet-circle" filter="url(#glow-packet)"/>
+              <text id="packet-icon" text-anchor="middle" dy="4" class="packet-text">📦</text>
+            </g>
+
           </g>
         </svg>
       </div>
 
-      <!-- Barra de Estado Inferior de la Topología -->
+      <!-- Banner de Eventos Técnicos -->
       <div class="event-banner" id="event-description">
-        Listo para iniciar simulación. Presiona "Iniciar" o "Siguiente".
+        Listo para iniciar simulación. Presiona "Reproducir" o mueve el deslizador superior.
       </div>
     </section>
 
-    <!-- Fila Inferior: Inspector OSI, Algoritmo y Tablas -->
+    <!-- Sección de Análisis Técnico (Grid Inferior) -->
     <div class="bottom-grid">
 
-      <!-- Panel 1: Inspector de Cabeceras / Pila OSI -->
+      <!-- 1. Inspector de Encapsulación OSI -->
       <section class="card osi-card">
         <div class="card-header">
-          <h3>Inspector de Encapsulación (Pila OSI)</h3>
+          <h3>Inspector de Encapsulación OSI</h3>
           <span class="info-pill" id="osi-status">Reposo</span>
         </div>
         <div class="osi-layers-stack">
-          <!-- Capa 4: Transporte -->
+          <!-- Capa 4 -->
           <div class="osi-layer layer-4">
-            <div class="layer-title">Capa 4 • Segmento TCP</div>
+            <div class="layer-header">
+              <span class="layer-title">Capa 4 • Segmento TCP</span>
+              <span class="layer-badge">Transporte</span>
+            </div>
             <div class="layer-content">
-              <span>Puerto Origen: <strong>49152</strong></span>
-              <span>Puerto Destino: <strong>80 (HTTP)</strong></span>
-              <span>Flag: <strong>[SYN]</strong></span>
+              <span>Puerto Origen: <strong id="hdr-tcp-src">49152</strong></span>
+              <span>Puerto Destino: <strong id="hdr-tcp-dst">80 (HTTP)</strong></span>
+              <span>Flags: <strong id="hdr-tcp-flag">[SYN]</strong></span>
             </div>
           </div>
-          <!-- Capa 3: Red -->
+          <!-- Capa 3 -->
           <div class="osi-layer layer-3">
-            <div class="layer-title">Capa 3 • Paquete IP</div>
+            <div class="layer-header">
+              <span class="layer-title">Capa 3 • Paquete IP</span>
+              <span class="layer-badge">Red</span>
+            </div>
             <div class="layer-content">
               <span>IP Origen: <strong id="hdr-ip-src">192.168.10.10</strong></span>
               <span>IP Destino: <strong id="hdr-ip-dst">192.168.20.10</strong></span>
               <span>TTL: <strong id="hdr-ttl" class="highlight-val">64</strong></span>
-              <span>Protocolo: <strong>0x06 (TCP)</strong></span>
+              <span>Protocolo: <strong id="hdr-ip-proto">0x06 (TCP)</strong></span>
             </div>
           </div>
-          <!-- Capa 2: Enlace de Datos -->
+          <!-- Capa 2 -->
           <div class="osi-layer layer-2" id="layer-2-container">
-            <div class="layer-title" id="hdr-l2-proto">Capa 2 • Trama Ethernet II</div>
+            <div class="layer-header">
+              <span class="layer-title" id="hdr-l2-proto">Capa 2 • Trama Ethernet II</span>
+              <span class="layer-badge" id="hdr-l2-badge">Enlace de Datos</span>
+            </div>
             <div class="layer-content" id="hdr-l2-details">
               <span>MAC Origen: <strong id="hdr-mac-src">00:1A:2B:3C:4D:01</strong></span>
               <span>MAC Destino: <strong id="hdr-mac-dst">AA:BB:CC:00:01:01</strong></span>
-              <span>Tipo: <strong>0x0800 (IPv4)</strong></span>
+              <span>EtherType: <strong>0x0800 (IPv4)</strong></span>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- Panel 2: Visor del Pseudocódigo Sincronizado -->
+      <!-- 2. Visor del Pseudocódigo Sincronizado -->
       <section class="card code-card">
         <div class="card-header">
-          <h3>Algoritmo de Simulación (Sincronizado)</h3>
+          <h3>Pseudocódigo Sincronizado</h3>
           <span class="info-pill" id="phase-tag">Fase 0</span>
         </div>
         <div class="code-viewport" id="code-container">
-          <pre><code id="pseudocode-display"><!-- Las líneas se renderizan dinámicamente --></code></pre>
+          <pre><code id="pseudocode-display"></code></pre>
         </div>
       </section>
 
-      <!-- Panel 3: Tablas Operativas de Dispositivos -->
+      <!-- 3. Tablas Operativas del Sistema -->
       <section class="card tables-card">
         <div class="card-header">
-          <h3>Tablas de Red Operativas</h3>
+          <h3>Tablas de Conmutación y Rutas</h3>
           <div class="tab-buttons">
-            <button class="tab-btn active" data-tab="tab-cam">Tabla CAM</button>
-            <button class="tab-btn" data-tab="tab-routing">Enrutamiento</button>
+            <button class="tab-btn active" data-tab="tab-cam">Tablas CAM (L2)</button>
+            <button class="tab-btn" data-tab="tab-routing">Rutas (L3)</button>
           </div>
         </div>
 
         <!-- Vista Tablas CAM -->
         <div class="tab-view active" id="tab-cam">
-          <h4>Switch A (Capa 2)</h4>
-          <table class="data-table">
-            <thead>
-              <tr><th>Dirección MAC</th><th>Puerto</th><th>VLAN</th></tr>
-            </thead>
-            <tbody>
-              <tr id="cam-row-1"><td>00:1A:2B:3C:4D:01 (PC A)</td><td>Fa0/1</td><td>10</td></tr>
-              <tr id="cam-row-2"><td>AA:BB:CC:00:01:01 (Router A)</td><td>Fa0/24</td><td>10</td></tr>
-            </tbody>
-          </table>
+          <div class="table-subgroup">
+            <div class="table-subtitle">Switch A (LAN Origen - Capa 2)</div>
+            <table class="data-table">
+              <thead><tr><th>Dirección MAC</th><th>Puerto</th><th>VLAN</th></tr></thead>
+              <tbody>
+                <tr id="cam-row-1"><td>00:1A:2B:3C:4D:01 (PC A)</td><td>Fa0/1</td><td>10</td></tr>
+                <tr id="cam-row-2"><td>AA:BB:CC:00:01:01 (Router A)</td><td>Fa0/24</td><td>10</td></tr>
+              </tbody>
+            </table>
+          </div>
 
-          <h4 style="margin-top: 14px;">Switch B (Capa 2)</h4>
-          <table class="data-table">
-            <thead>
-              <tr><th>Dirección MAC</th><th>Puerto</th><th>VLAN</th></tr>
-            </thead>
-            <tbody>
-              <tr id="cam-row-3"><td>AA:BB:CC:00:02:01 (Router B)</td><td>Fa0/24</td><td>20</td></tr>
-              <tr id="cam-row-4"><td>00:1A:2B:3C:4D:02 (PC B)</td><td>Fa0/1</td><td>20</td></tr>
-            </tbody>
-          </table>
+          <div class="table-subgroup">
+            <div class="table-subtitle">Switch B (LAN Remota - Capa 2)</div>
+            <table class="data-table">
+              <thead><tr><th>Dirección MAC</th><th>Puerto</th><th>VLAN</th></tr></thead>
+              <tbody>
+                <tr id="cam-row-3"><td>AA:BB:CC:00:02:01 (Router B)</td><td>Fa0/24</td><td>20</td></tr>
+                <tr id="cam-row-4"><td>00:1A:2B:3C:4D:02 (PC B)</td><td>Fa0/1</td><td>20</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <!-- Vista Tablas de Enrutamiento -->
         <div class="tab-view" id="tab-routing">
-          <h4>Router A (Capa 3)</h4>
-          <table class="data-table">
-            <thead>
-              <tr><th>Red Destino</th><th>Máscara</th><th>Próximo Salto / Int</th></tr>
-            </thead>
-            <tbody>
-              <tr id="rt-row-1"><td>192.168.10.0</td><td>/24</td><td>Directa (Fa0/0)</td></tr>
-              <tr id="rt-row-2"><td>10.0.0.0</td><td>/30</td><td>Directa (Se0/0/0)</td></tr>
-              <tr id="rt-row-3" class="highlight-route"><td>192.168.20.0</td><td>/24</td><td>10.0.0.2 (Se0/0/0)</td></tr>
-            </tbody>
-          </table>
+          <div class="table-subgroup">
+            <div class="table-subtitle">Router A (Tabla RIB Capa 3)</div>
+            <table class="data-table">
+              <thead><tr><th>Red Destino</th><th>Máscara</th><th>Próximo Salto / Int</th></tr></thead>
+              <tbody>
+                <tr id="rt-row-1"><td>192.168.10.0</td><td>/24</td><td>Directa (Fa0/0)</td></tr>
+                <tr id="rt-row-2"><td>10.0.0.0</td><td>/30</td><td>Directa (Se0/0/0)</td></tr>
+                <tr id="rt-row-3"><td>192.168.20.0</td><td>/24</td><td>10.0.0.2 (Se0/0/0)</td></tr>
+              </tbody>
+            </table>
+          </div>
 
-          <h4 style="margin-top: 14px;">Router B (Capa 3)</h4>
-          <table class="data-table">
-            <thead>
-              <tr><th>Red Destino</th><th>Máscara</th><th>Próximo Salto / Int</th></tr>
-            </thead>
-            <tbody>
-              <tr id="rt-row-4"><td>10.0.0.0</td><td>/30</td><td>Directa (Se0/0/0)</td></tr>
-              <tr id="rt-row-5" class="highlight-route"><td>192.168.20.0</td><td>/24</td><td>Directa (Fa0/0)</td></tr>
-            </tbody>
-          </table>
+          <div class="table-subgroup">
+            <div class="table-subtitle">Router B (Tabla RIB Capa 3)</div>
+            <table class="data-table">
+              <thead><tr><th>Red Destino</th><th>Máscara</th><th>Próximo Salto / Int</th></tr></thead>
+              <tbody>
+                <tr id="rt-row-4"><td>10.0.0.0</td><td>/30</td><td>Directa (Se0/0/0)</td></tr>
+                <tr id="rt-row-5"><td>192.168.20.0</td><td>/24</td><td>Directa (Fa0/0)</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
